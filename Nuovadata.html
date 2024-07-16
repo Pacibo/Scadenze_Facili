@@ -1,1 +1,120 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario Dinamico</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #calendario { display: inline-block; background: #f0f0f0; padding: 20px; border-radius: 10px; }
+        #meseAnno { margin-bottom: 10px; }
+        table { border-collapse: collapse; }
+        td { width: 40px; height: 40px; text-align: center; vertical-align: middle; cursor: pointer; }
+        td:hover { background: #e0e0e0; }
+        .oggi { background: #ffff00; }
+        .selezionato { background: #90EE90; }
+        #risultato { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="calendario">
+        <div id="meseAnno"></div>
+        <table>
+            <tr>
+                <th>Dom</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Gio</th><th>Ven</th><th>Sab</th>
+            </tr>
+        </table>
+    </div>
+    <div id="risultato"></div>
 
+    <script>
+        const mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+        let dataCorrente = new Date();
+        let meseCorrente = dataCorrente.getMonth();
+        let annoCorrente = dataCorrente.getFullYear();
+        let dataSelezionata = null;
+
+        function generaCalendario(mese, anno) {
+            let primoGiorno = new Date(anno, mese, 1);
+            let giornoSettimana = primoGiorno.getDay();
+            let dataOggi = new Date();
+            let ultimoGiorno = new Date(anno, mese + 1, 0).getDate();
+
+            let tabella = document.querySelector('#calendario table');
+            let corpo = tabella.querySelector('tbody') || tabella.createTBody();
+            corpo.innerHTML = '';
+
+            document.getElementById('meseAnno').textContent = `${mesi[mese]} ${anno}`;
+
+            let data = 1;
+            for (let i = 0; i < 6; i++) {
+                let riga = corpo.insertRow();
+                for (let j = 0; j < 7; j++) {
+                    if (i === 0 && j < giornoSettimana) {
+                        riga.insertCell();
+                    } else if (data > ultimoGiorno) {
+                        break;
+                    } else {
+                        let cella = riga.insertCell();
+                        cella.textContent = data;
+                        let dataCorrente = new Date(anno, mese, data);
+                        if (dataCorrente.toDateString() === dataOggi.toDateString()) {
+                            cella.classList.add('oggi');
+                        }
+                        if (dataSelezionata && dataCorrente.toDateString() === dataSelezionata.toDateString()) {
+                            cella.classList.add('selezionato');
+                        }
+                        cella.addEventListener('click', () => selezionaData(new Date(anno, mese, data)));
+                        data++;
+                    }
+                }
+            }
+        }
+
+        function selezionaData(data) {
+            dataSelezionata = data;
+            generaCalendario(meseCorrente, annoCorrente);
+            calcolaGiorniAllaScadenza();
+        }
+
+        function calcolaGiorniAllaScadenza() {
+            if (dataSelezionata) {
+                let oggi = new Date();
+                oggi.setHours(0, 0, 0, 0);
+                let differenza = dataSelezionata.getTime() - oggi.getTime();
+                let giorni = Math.ceil(differenza / (1000 * 3600 * 24));
+                let dataFormattata = `${dataSelezionata.getDate().toString().padStart(2, '0')}-${(dataSelezionata.getMonth() + 1).toString().padStart(2, '0')}-${dataSelezionata.getFullYear()}`;
+                document.getElementById('risultato').textContent = `Data selezionata: ${dataFormattata}. Giorni alla scadenza: ${giorni}`;
+
+                // Invia il risultato a Thunkable
+                if (window.postMessage) {
+                    window.postMessage(JSON.stringify({
+                        type: 'dataSelezionata',
+                        data: dataFormattata,
+                        giorniAllaScadenza: giorni
+                    }), '*');
+                }
+            }
+        }
+
+        generaCalendario(meseCorrente, annoCorrente);
+
+        // Aggiungi navigazione mesi
+        document.getElementById('calendario').insertAdjacentHTML('beforeend', 
+            '<button onclick="cambioMese(-1)">Mese Precedente</button>' +
+            '<button onclick="cambioMese(1)">Mese Successivo</button>');
+
+        function cambioMese(delta) {
+            meseCorrente += delta;
+            if (meseCorrente < 0) {
+                meseCorrente = 11;
+                annoCorrente--;
+            } else if (meseCorrente > 11) {
+                meseCorrente = 0;
+                annoCorrente++;
+            }
+            generaCalendario(meseCorrente, annoCorrente);
+        }
+    </script>
+</body>
+</html>
